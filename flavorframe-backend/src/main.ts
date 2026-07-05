@@ -14,16 +14,17 @@ async function bootstrap() {
   // 2. CORS Ayarı (Cross-Origin Resource Sharing)
   // Tarayıcılar güvenlik gereği localhost:3000'den localhost:3500'e giden istekleri bloke eder.
   // Bu ayar ile sadece belirlediğimiz frontend domain'ine izin veriyoruz.
-  app.enableCors({
-    origin: 'http://localhost:3000', // React projemizin çalışacağı adres
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true, // İleride cookie veya token kullanırsak diye aktif ediyoruz
+ app.enableCors({
+    // Hem localhost hem de 127.0.0.1 üzerinden gelen Vite isteklerine izin ver
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], 
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
   });
 
   // 3. Dosya yükleme boyut sınırları
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
 
-  await app.listen(3500); // Backend servis portu[cite: 1]
+  await app.listen(3000, '127.0.0.1');
 }
 bootstrap();

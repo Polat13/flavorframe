@@ -1,47 +1,50 @@
-// src/ai/ai.service.ts
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import sharp from 'sharp';
 import Replicate from 'replicate';
-import { UsageLog } from './schemas/usage-log.schema';
 
 @Injectable()
 export class AiService {
   private replicate: Replicate;
 
-  constructor(
-    // MongoDB modelimizi servise dahil ediyoruz
-    @InjectModel(UsageLog.name) private usageLogModel: Model<UsageLog>
-  ) {
+  constructor() {
     this.replicate = new Replicate({
       auth: process.env.REPLICATE_API_TOKEN,
     });
   }
 
-  async optimizeImage(fileBuffer: Buffer): Promise<Buffer> {
-    return await sharp(fileBuffer).resize({ width: 1024, height: 1024, fit: 'inside' }).jpeg({ quality: 80 }).toBuffer();
-  }
+  async generateFuturisticImage(file: Express.Multer.File, style: string) {
+    const base64Image = file.buffer.toString('base64');
+    const dataURI = `data:${file.mimetype};base64,${base64Image}`;
 
-  async generateImage(imageBuffer: Buffer, styleId: string): Promise<string> {
-    const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
-    const selectedPrompt = styleId; // Şimdilik basit tutalım
+  const output = await this.replicate.run(
+      "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+      {
+        input: {
+          image: dataURI,
+          // Komutu stili daha agresif uygulaması için güncelledik
+          prompt: `A striking, highly detailed ${style} version of this exact food and background. Completely transform the lighting, materials, and atmosphere to strongly match the ${style} theme, but tightly preserve the original geometry of the food and the table. 8k resolution, masterpiece, dramatic illumination`,
+          
+          // Tatlı Nokta: Ne çok özgür (0.75) ne de çok korkak (0.45)
+          prompt_strength: 0.60, 
+          
+          num_outputs: 1
+        }
+      }
+    );
 
-    try {
-      const output = await this.replicate.run(
-        "stability-ai/stable-diffusion-img2img:15a3689ee13b0d2616e98820eca31d4c3abcd36672ff6afce5cb94283c7d6c4a",
-        { input: { image: base64Image, prompt: selectedPrompt, prompt_strength: 0.75 } }
-      );
+    // Çıktıyı alıyoruz
+    const stream = Array.isArray(output) ? output[0] : output;
 
-      // MongoDB'ye Başarılı Kayıt
-      await new this.usageLogModel({ styleId, status: 'SUCCESS' }).save();
-
-      return (output as string[])[0];
-
-    } catch (error) {
-      // MongoDB'ye Hatalı Kayıt
-      await new this.usageLogModel({ styleId, status: 'ERROR' }).save();
-      throw error;
-    }
+    // 1. İhtimal: Replicate objesinin içinde hazır url() metodu varsa direkt onu kullan
+    if (stream && typeof stream.url === 'function') {
+      return stream.url().toString();
+    } 
+    
+    // 2. İhtimal: Doğrudan ReadableStream geldiyse, bunu okuyup Base64'e çevir
+    const response = new Response(stream as any);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString('base64');
+    
+    return `data:image/jpeg;base64,${base64}`;
   }
 }

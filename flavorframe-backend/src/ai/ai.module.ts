@@ -1,9 +1,8 @@
-// src/ai/ai.module.ts
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
-import { UsageLog, UsageLogSchema } from './schemas/usage-log.schema'; // Şema dosyamızı dahil ettik
+import { UsageLog, UsageLogSchema } from './schemas/usage-log.schema'; 
 
 @Module({
   imports: [

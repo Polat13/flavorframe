@@ -1,30 +1,49 @@
-// src/ai/ai.controller.ts
-import { Controller, Post, UploadedFile, UseInterceptors, Body } from '@nestjs/common';
+import { 
+  Controller, 
+  Post, 
+  UseInterceptors, 
+  UploadedFile, 
+  Body, 
+  BadRequestException 
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { AiService } from './ai.service';
-import 'multer';
+import { AiService } from './ai.service'; // Servisimizi dahil ettik
+import'multer';
 
 @Controller('ai')
 export class AiController {
+  
+  // Dependency Injection ile servisi bağlıyoruz
   constructor(private readonly aiService: AiService) {}
 
   @Post('enhance')
-  @UseInterceptors(FileInterceptor('image')) 
+  @UseInterceptors(FileInterceptor('file')) 
   async enhanceImage(
-    @UploadedFile() file: Express.Multer.File, // Frontend'den gelen fotoğraf
-    @Body('styleId') styleId: string // Frontend'den gelen stil seçimi (örn: "modern_restoran")
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { id: string; style: string } 
   ) {
-    
-    // 1. Görseli küçült ve optimize et
-    const optimizedImageBuffer = await this.aiService.optimizeImage(file.buffer);
+    if (!file) {
+      throw new BadRequestException('Lütfen bir görsel yükleyin.');
+    }
 
-    // 2. Optimize edilmiş görseli ve seçilen stili yapay zekaya gönder
-    const generatedImageUrl = await this.aiService.generateImage(optimizedImageBuffer, styleId);
+    try {
+      console.log('Görsel yapay zekaya gönderiliyor... Lütfen bekleyin.');
+      
+      // Gerçek AI motorunu çalıştır
+      const generatedImageUrl = await this.aiService.generateFuturisticImage(file, body.style);
+      console.log('Replicate Çıktısı:', generatedImageUrl);
+      console.log('Yapay zeka işlemi tamamlandı!');
 
-    // 3. Ortaya çıkan şaheserin URL'sini frontend'e geri dön
-    return {
-      message: 'Görsel başarıyla işlendi!',
-      resultUrl: generatedImageUrl,
-    };
+      return {
+        id: body.id,
+        originalImageUrl: 'isleme-alindi',
+        generatedImageUrl: generatedImageUrl, // Replicate'ten gelen gerçek link
+        status: 'success',
+        message: 'Yapay zeka görseli başarıyla üretti!'
+      };
+    } catch (error) {
+      console.error("Replicate AI Hatası:", error);
+      throw new BadRequestException('Görsel işlenirken yapay zeka servisinde bir hata oluştu.');
+    }
   }
 }
